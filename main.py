@@ -13,10 +13,17 @@ TOKENS = [
 def run():
     for symbol in TOKENS:
         df = fetch_ohlcv(symbol)
-        if df is not None:
-            result = SmartFilter(symbol, df).analyze()
-            if result and not os.getenv("DRY_RUN", "false").lower() == "true":
+        if df is None or df.empty:
+            print(f"[{symbol}] Skipped — no data")
+            continue
+
+        result = SmartFilter(symbol, df).analyze()
+        if result:
+            print(f"[{symbol}] Signal → {result}")
+            if not os.getenv("DRY_RUN", "false").lower() == "true":
                 send_alert(result)
+        else:
+            print(f"[{symbol}] No signal")
 
 if __name__ == "__main__":
     run()
