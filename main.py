@@ -30,15 +30,11 @@ def run():
             try:
                 df = fetch_ohlcv(symbol, tf)
                 if df is not None:
-                    sf = SmartFilter(symbol, df, tf=tf, min_score=9, required_passed=7)
-                    result = sf.analyze()
+                    filter = SmartFilter(symbol, df, min_score=9, required_passed=7, tf=tf)
+                    result = filter.analyze()
                     if result:
                         if os.getenv("DRY_RUN", "false").lower() != "true":
-                            try:
-                                signal_text, symbol, signal_type, price, tf_str, score, passed = result.split(" | ")
-                                send_telegram_alert(symbol, signal_type, price, tf_str, score, passed)
-                            except Exception as alert_err:
-                                print(f"[{symbol}] ❌ Telegram alert error: {alert_err}")
+                            send_telegram_alert(symbol, result.split()[0], df['close'].iloc[-1], tf, filter.total_score, sum(filter.stack_results.values()))
                         last_sent[key] = now
             except Exception as e:
                 print(f"[{symbol} {tf}] Unexpected error: {e}")
