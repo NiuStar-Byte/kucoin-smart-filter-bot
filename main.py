@@ -1,5 +1,5 @@
 import time
-from kucoin_data import fetch_klines
+from kucoin_data import fetch_ohlcv
 from smart_filter import SmartFilter
 from telegram_alert import send_telegram_alert
 
