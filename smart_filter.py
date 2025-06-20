@@ -1,9 +1,10 @@
 import pandas as pd
 
 class SmartFilter:
-    def __init__(self, symbol, df):
+    def __init__(self, symbol, df, timeframe):
         self.symbol = symbol
         self.df = df
+        self.timeframe = timeframe
         self.result = None
         self.stack_results = {}
         self.total_score = 0
@@ -11,7 +12,7 @@ class SmartFilter:
 
     def analyze(self):
         if self.df is None or self.df.empty or len(self.df.columns) < 6:
-            print(f"[{self.symbol}] DataFrame is invalid or missing columns.")
+            print(f"[{self.symbol} {self.timeframe}] DataFrame is invalid or missing columns.")
             return None
 
         try:
@@ -49,7 +50,6 @@ class SmartFilter:
                 "Liquidity Pool", "Spread Filter"
             }
 
-            # Scoring logic
             score = 0
             required_passed = True
             for name, passed in self.stack_results.items():
@@ -61,28 +61,33 @@ class SmartFilter:
             self.total_score = score
             self.passed_required = required_passed
 
-            print(f"[{self.symbol}] Score: {score}/18 | Required Passed: {required_passed}")
+            print(f"[{self.symbol} {self.timeframe}] Score: {score}/18 | Required Passed: {required_passed}")
             for name, passed in self.stack_results.items():
                 print(f"[{name}] → {'✅' if passed else '❌'}")
 
             if score >= 12 and required_passed:
                 last_close = self.df['close'].iloc[-1]
                 trend_bias = "LONG" if self.df['close'].iloc[-1] > self.df['open'].iloc[-1] else "SHORT"
-                signal = f"{trend_bias} Signal for {self.symbol} at {last_close}"
-                print(f"[{self.symbol}] ✅ FINAL SIGNAL → {signal}")
-                return signal
+                signal = f"{trend_bias} Signal for {self.symbol} at {last_close} ({self.timeframe})"
+                print(f"[{self.symbol} {self.timeframe}] ✅ FINAL SIGNAL → {signal}")
+                return {
+                    "symbol": self.symbol,
+                    "direction": trend_bias,
+                    "price": last_close,
+                    "timeframe": self.timeframe,
+                    "score": score
+                }
             else:
-                print(f"[{self.symbol}] ❌ No Signal (Score too low or missing required)")
+                print(f"[{self.symbol} {self.timeframe}] ❌ No Signal (Score too low or missing required)")
                 return None
 
         except Exception as e:
-            print(f"[{self.symbol}] SmartFilter Error: {e}")
+            print(f"[{self.symbol} {self.timeframe}] SmartFilter Error: {e}")
             return None
 
-    # --- SMART STACKS IMPLEMENTATION ---
+    # STACK IMPLEMENTATIONS (same as your version)
 
     def _check_fractal_zone(self):
-        # Dummy logic (replace with actual zone rules)
         return self.df['close'].iloc[-1] > self.df['low'].rolling(20).min().iloc[-1]
 
     def _check_ema_cloud(self):
@@ -122,16 +127,14 @@ class SmartFilter:
         return self.df['high'].iloc[-1] > self.df['high'].iloc[-3] and self.df['low'].iloc[-1] > self.df['low'].iloc[-3]
 
     def _check_dummy_sr(self):
-        return True  # Placeholder for SR logic
+        return True
 
     def _check_dummy_liquidity(self):
-        return True  # Placeholder for liquidity zone detection
+        return True
 
     def _check_dummy_volatility(self):
         spread = self.df['high'].iloc[-1] - self.df['low'].iloc[-1]
         return spread < (self.df['close'].iloc[-1] * 0.02)
 
     def _optional_dummy(self):
-        return True  # Optional filters marked as passed for now
-
-
+        return True
