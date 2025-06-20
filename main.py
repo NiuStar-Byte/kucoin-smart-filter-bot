@@ -1,50 +1,46 @@
+import os
 import time
 from kucoin_data import fetch_ohlcv
 from smart_filter import SmartFilter
-from telegram_alert import send_telegram_alert
+from telegram_alert import send_alert
 
 TOKENS = [
-    "SUIUSDTM", "SKATEUSDTM", "BIDUSDTM", "LAUSDTM", "SPARKUSDTM",
-    "SPKUSDTM", "ZKJUSDTM", "IPUSDTM", "AEROUSDTM", "BMTUSDTM",
-    "LQTYUSDTM", "FUNUSDTM", "SNTUSDTM", "XUSDTM", "BANKUSDTM",
-    "RAYUSDTM", "REXUSDTM", "EPTUSDTM", "ELDEUSDTM", "MAGICUSDTM",
-    "ACTUSDTM", "OPUSDTM", "ARBUSDTM", "DOGEUSDTM", "XRPUSDTM",
+    "SUIUSDTM", "OPUSDTM", "ARBUSDTM", "DOGEUSDTM", "XRPUSDTM",
     "LINKUSDTM", "BCHUSDTM", "LTCUSDTM", "DOTUSDTM", "MATICUSDTM",
     "SOLUSDTM", "ATOMUSDTM", "AVAXUSDTM", "APTUSDTM", "RNDRUSDTM",
     "PEPEUSDTM", "TIAUSDTM", "SEIUSDTM", "FETUSDTM", "WLDUSDTM"
 ]
 
 TIMEFRAMES = ["2min", "3min", "5min"]
-INTERVAL_MAP = {
-    "2min": 2,
-    "3min": 3,
-    "5min": 5
+COOLDOWN = {
+    "2min": 300,   # 5 minutes
+    "3min": 720,   # 12 minutes
+    "5min": 900    # 15 minutes
 }
+last_sent = {}
 
 def run():
-    while True:
-        for token in TOKENS:
-            for tf in TIMEFRAMES:
-                try:
-                    interval = INTERVAL_MAP[tf]
-                    df = fetch_klines(token, interval)
-                    if df is None or df.empty:
-                        print(f"[{token} {tf}] Data error or empty.")
-                        continue
+    for symbol in TOKENS:
+        for tf in TIMEFRAMES:
+            key = f"{symbol}_{tf}"
+            now = time.time()
+            if key in last_sent and (now - last_sent[key]) < COOLDOWN[tf]:
+                continue
 
-                    sf = SmartFilter(token, df)
-                    signal = sf.analyze()
+            try:
+                df = fetch_ohlcv(symbol, tf)
+                if df is not None:
+                    result = SmartFilter(symbol, df, min_score=9, required_passed=7).analyze()
+                    if result:
+                        if os.getenv("DRY_RUN", "false").lower() != "true":
+                            send_alert(result)
+                        last_sent[key] = now
+            except Exception as e:
+                print(f"[{symbol} {tf}] Unexpected error: {e}")
 
-                    if signal:
-                        send_telegram_alert(f"[{token} {tf}] Signal → 📈 {signal}" if "LONG" in signal else f"[{token} {tf}] Signal → 📉 {signal}")
-                    else:
-                        print(f"[{token} {tf}] ❌ No Signal")
-
-                except Exception as e:
-                    print(f"[{token} {tf}] Unexpected error: {e}")
-
-        print("✅ Cycle complete. Sleeping 3 minutes...\n")
-        time.sleep(180)
+    print("✅ Cycle complete. Sleeping 3 minutes...\n")
 
 if __name__ == "__main__":
-    run()
+    while True:
+        run()
+        time.sleep(180)  # Wait 3 minutes before next full cycle
