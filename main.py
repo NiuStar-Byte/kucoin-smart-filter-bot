@@ -8,14 +8,14 @@ TOKENS = [
     "SUIUSDTM", "OPUSDTM", "ARBUSDTM", "DOGEUSDTM", "XRPUSDTM",
     "LINKUSDTM", "BCHUSDTM", "LTCUSDTM", "DOTUSDTM", "MATICUSDTM",
     "SOLUSDTM", "ATOMUSDTM", "AVAXUSDTM", "APTUSDTM", "RNDRUSDTM",
-    "PEPEUSDTM", "TIAUSDTM", "SEIUSDTM", "FETUSDTM", "WLDUSDTM"
+    "PEPEUSDTM", "TIAUSDTM", "SEIUSDTM", "FETUSUSDTM", "WLDUSDTM"
 ]
 
 TIMEFRAMES = ["2min", "3min", "5min"]
 COOLDOWN = {
-    "2min": 300,   # 5 minutes
-    "3min": 720,   # 12 minutes
-    "5min": 900    # 15 minutes
+    "2min": 300,
+    "3min": 720,
+    "5min": 900
 }
 last_sent = {}
 
@@ -30,11 +30,12 @@ def run():
             try:
                 df = fetch_ohlcv(symbol, tf)
                 if df is not None:
-                    filter = SmartFilter(symbol, df, min_score=9, required_passed=7, tf=tf)
+                    filter = SmartFilter(symbol, df, tf=tf, min_score=9, required_passed=7)
                     result = filter.analyze()
                     if result:
+                        signal_text, symbol, signal_type, price, tf, score, passed = result
                         if os.getenv("DRY_RUN", "false").lower() != "true":
-                            send_telegram_alert(symbol, result.split()[0], df['close'].iloc[-1], tf, filter.total_score, sum(filter.stack_results.values()))
+                            send_telegram_alert(symbol, signal_type, price, tf, score, passed)
                         last_sent[key] = now
             except Exception as e:
                 print(f"[{symbol} {tf}] Unexpected error: {e}")
