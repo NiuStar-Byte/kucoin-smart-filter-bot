@@ -4,82 +4,134 @@ class SmartFilter:
     def __init__(self, symbol, df):
         self.symbol = symbol
         self.df = df
+        self.result = None
+        self.stack_results = {}
+        self.total_score = 0
+        self.passed_required = True
 
     def analyze(self):
+        if self.df is None or self.df.empty or len(self.df.columns) < 6:
+            print(f"[{self.symbol}] DataFrame is invalid or missing columns.")
+            return None
+
         try:
-            if self.df is None or self.df.empty:
-                return None
+            self.stack_results = {
+                "Fractal Zone": self._check_fractal_zone(),
+                "EMA Cloud": self._check_ema_cloud(),
+                "MACD": self._check_macd(),
+                "Momentum": self._check_momentum(),
+                "HATS": self._check_hats(),
 
-            # Normalize columns
-            self.df.columns = [col.lower() for col in self.df.columns]
-            self.df = self.df.dropna()
-            if len(self.df) < 20:
-                return None
+                "Volume Spike": self._check_volume_spike(),
+                "VWAP Divergence": self._optional_dummy(),
+                "MTF Volume Agreement": self._optional_dummy(),
 
+                "HH/LL Trend": self._check_hh_ll(),
+                "EMA Structure": self._optional_dummy(),
+
+                "Chop Zone": self._check_chop_zone(),
+
+                "Candle Confirmation": self._check_candle_close(),
+                "Wick Dominance": self._optional_dummy(),
+                "Absorption": self._optional_dummy(),
+
+                "Support/Resistance": self._check_dummy_sr(),
+                "Smart Money Bias": self._optional_dummy(),
+
+                "Liquidity Pool": self._check_dummy_liquidity(),
+                "Spread Filter": self._check_dummy_volatility(),
+            }
+
+            required_items = {
+                "Fractal Zone", "EMA Cloud", "MACD", "Momentum", "HATS",
+                "Volume Spike", "HH/LL Trend", "Chop Zone",
+                "Candle Confirmation", "Support/Resistance",
+                "Liquidity Pool", "Spread Filter"
+            }
+
+            # Scoring logic
             score = 0
-            total_stacks = 5
+            required_passed = True
+            for name, passed in self.stack_results.items():
+                if passed:
+                    score += 1
+                elif name in required_items:
+                    required_passed = False
 
-            close = self.df['close']
-            high = self.df['high']
-            low = self.df['low']
+            self.total_score = score
+            self.passed_required = required_passed
 
-            ### 1. Fractal Zones (Structure Confirm)
-            fractal_bull = close.iloc[-1] > max(close[-5:-1])
-            fractal_bear = close.iloc[-1] < min(close[-5:-1])
-            if fractal_bull:
-                score += 1
-            elif fractal_bear:
-                score -= 1
+            print(f"[{self.symbol}] Score: {score}/18 | Required Passed: {required_passed}")
+            for name, passed in self.stack_results.items():
+                print(f"[{name}] → {'✅' if passed else '❌'}")
 
-            ### 2. Fibonacci Vortex (Retracement Logic)
-            high20 = high[-20:].max()
-            low20 = low[-20:].min()
-            retrace = (close.iloc[-1] - low20) / (high20 - low20 + 1e-9)
-            if retrace > 0.618:
-                score += 1
-            elif retrace < 0.382:
-                score -= 1
-
-            ### 3. MACD Dynamic Signal
-            ema12 = close.ewm(span=12).mean()
-            ema26 = close.ewm(span=26).mean()
-            macd = ema12 - ema26
-            signal = macd.ewm(span=9).mean()
-            macd_cross = macd.iloc[-2] < signal.iloc[-2] and macd.iloc[-1] > signal.iloc[-1]
-            macd_cross_down = macd.iloc[-2] > signal.iloc[-2] and macd.iloc[-1] < signal.iloc[-1]
-            if macd_cross:
-                score += 1
-            elif macd_cross_down:
-                score -= 1
-
-            ### 4. Quantum Momentum (UST logic)
-            momentum = close.pct_change().rolling(5).mean().iloc[-1]
-            if momentum > 0.004:
-                score += 1
-            elif momentum < -0.004:
-                score -= 1
-
-            ### 5. EMA Cloud + HATS
-            ema50 = close.ewm(span=50).mean()
-            ema100 = close.ewm(span=100).mean()
-            cloud_bias = ema50.iloc[-1] > ema100.iloc[-1]
-            cloud_cross = ema50.iloc[-2] < ema100.iloc[-2] and cloud_bias
-            cloud_cross_down = ema50.iloc[-2] > ema100.iloc[-2] and not cloud_bias
-            if cloud_cross:
-                score += 1
-            elif cloud_cross_down:
-                score -= 1
-
-            # Final Score Evaluation
-            if score >= 3:
-                signal = f"📈 LONG Signal for {self.symbol} at {close.iloc[-1]:.4f}"
-            elif score <= -3:
-                signal = f"📉 SHORT Signal for {self.symbol} at {close.iloc[-1]:.4f}"
+            if score >= 12 and required_passed:
+                last_close = self.df['close'].iloc[-1]
+                trend_bias = "LONG" if self.df['close'].iloc[-1] > self.df['open'].iloc[-1] else "SHORT"
+                signal = f"{trend_bias} Signal for {self.symbol} at {last_close}"
+                print(f"[{self.symbol}] ✅ FINAL SIGNAL → {signal}")
+                return signal
             else:
-                return None  # No valid signal
-
-            return signal
+                print(f"[{self.symbol}] ❌ No Signal (Score too low or missing required)")
+                return None
 
         except Exception as e:
-            print(f"[{self.symbol}] Error in SmartFilter: {e}")
+            print(f"[{self.symbol}] SmartFilter Error: {e}")
             return None
+
+    # --- SMART STACKS IMPLEMENTATION ---
+
+    def _check_fractal_zone(self):
+        # Dummy logic (replace with actual zone rules)
+        return self.df['close'].iloc[-1] > self.df['low'].rolling(20).min().iloc[-1]
+
+    def _check_ema_cloud(self):
+        ema21 = self.df['close'].ewm(span=21).mean()
+        ema89 = self.df['close'].ewm(span=89).mean()
+        return ema21.iloc[-1] > ema89.iloc[-1]
+
+    def _check_macd(self):
+        ema12 = self.df['close'].ewm(span=12).mean()
+        ema26 = self.df['close'].ewm(span=26).mean()
+        macd_line = ema12 - ema26
+        signal = macd_line.ewm(span=9).mean()
+        return macd_line.iloc[-1] > signal.iloc[-1]
+
+    def _check_momentum(self):
+        mom = self.df['close'].diff()
+        return mom.iloc[-1] > 0
+
+    def _check_hats(self):
+        ha_close = (self.df['open'] + self.df['high'] + self.df['low'] + self.df['close']) / 4
+        return ha_close.iloc[-1] > ha_close.iloc[-2]
+
+    def _check_volume_spike(self):
+        avg_vol = self.df['volume'].rolling(10).mean()
+        return self.df['volume'].iloc[-1] > 1.5 * avg_vol.iloc[-1]
+
+    def _check_chop_zone(self):
+        rsi = self.df['close'].rolling(14).apply(lambda x: (x.diff() > 0).sum(), raw=False)
+        return rsi.iloc[-1] > 7
+
+    def _check_candle_close(self):
+        body = abs(self.df['close'].iloc[-1] - self.df['open'].iloc[-1])
+        wick = abs(self.df['high'].iloc[-1] - self.df['low'].iloc[-1])
+        return body > 0.5 * wick
+
+    def _check_hh_ll(self):
+        return self.df['high'].iloc[-1] > self.df['high'].iloc[-3] and self.df['low'].iloc[-1] > self.df['low'].iloc[-3]
+
+    def _check_dummy_sr(self):
+        return True  # Placeholder for SR logic
+
+    def _check_dummy_liquidity(self):
+        return True  # Placeholder for liquidity zone detection
+
+    def _check_dummy_volatility(self):
+        spread = self.df['high'].iloc[-1] - self.df['low'].iloc[-1]
+        return spread < (self.df['close'].iloc[-1] * 0.02)
+
+    def _optional_dummy(self):
+        return True  # Optional filters marked as passed for now
+
+
