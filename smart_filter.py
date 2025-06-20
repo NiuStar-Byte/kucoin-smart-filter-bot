@@ -1,10 +1,11 @@
 import pandas as pd
 
 class SmartFilter:
-    def __init__(self, symbol, df, timeframe):
+    def __init__(self, symbol, df, min_score=9, required_passed=7):
         self.symbol = symbol
         self.df = df
-        self.timeframe = timeframe
+        self.min_score = min_score
+        self.required_passed_threshold = required_passed
         self.result = None
         self.stack_results = {}
         self.total_score = 0
@@ -12,7 +13,7 @@ class SmartFilter:
 
     def analyze(self):
         if self.df is None or self.df.empty or len(self.df.columns) < 6:
-            print(f"[{self.symbol} {self.timeframe}] DataFrame is invalid or missing columns.")
+            print(f"[{self.symbol}] DataFrame is invalid or missing columns.")
             return None
 
         try:
@@ -51,41 +52,35 @@ class SmartFilter:
             }
 
             score = 0
-            required_passed = True
+            required_passed_count = 0
             for name, passed in self.stack_results.items():
                 if passed:
                     score += 1
-                elif name in required_items:
-                    required_passed = False
+                    if name in required_items:
+                        required_passed_count += 1
 
             self.total_score = score
-            self.passed_required = required_passed
+            self.passed_required = required_passed_count >= self.required_passed_threshold
 
-            print(f"[{self.symbol} {self.timeframe}] Score: {score}/18 | Required Passed: {required_passed}")
+            print(f"[{self.symbol}] Score: {score}/18 | Required Passed: {required_passed_count}/{len(required_items)}")
             for name, passed in self.stack_results.items():
                 print(f"[{name}] → {'✅' if passed else '❌'}")
 
-            if score >= 12 and required_passed:
+            if score >= self.min_score and self.passed_required:
                 last_close = self.df['close'].iloc[-1]
                 trend_bias = "LONG" if self.df['close'].iloc[-1] > self.df['open'].iloc[-1] else "SHORT"
-                signal = f"{trend_bias} Signal for {self.symbol} at {last_close} ({self.timeframe})"
-                print(f"[{self.symbol} {self.timeframe}] ✅ FINAL SIGNAL → {signal}")
-                return {
-                    "symbol": self.symbol,
-                    "direction": trend_bias,
-                    "price": last_close,
-                    "timeframe": self.timeframe,
-                    "score": score
-                }
+                signal = f"{trend_bias} Signal for {self.symbol} at {last_close}"
+                print(f"[{self.symbol}] ✅ FINAL SIGNAL → {signal}")
+                return signal
             else:
-                print(f"[{self.symbol} {self.timeframe}] ❌ No Signal (Score too low or missing required)")
+                print(f"[{self.symbol}] ❌ No Signal (Score too low or missing required)")
                 return None
 
         except Exception as e:
-            print(f"[{self.symbol} {self.timeframe}] SmartFilter Error: {e}")
+            print(f"[{self.symbol}] SmartFilter Error: {e}")
             return None
 
-    # STACK IMPLEMENTATIONS (same as your version)
+    # --- SMART STACKS IMPLEMENTATION ---
 
     def _check_fractal_zone(self):
         return self.df['close'].iloc[-1] > self.df['low'].rolling(20).min().iloc[-1]
@@ -127,14 +122,14 @@ class SmartFilter:
         return self.df['high'].iloc[-1] > self.df['high'].iloc[-3] and self.df['low'].iloc[-1] > self.df['low'].iloc[-3]
 
     def _check_dummy_sr(self):
-        return True
+        return True  # Placeholder
 
     def _check_dummy_liquidity(self):
-        return True
+        return True  # Placeholder
 
     def _check_dummy_volatility(self):
         spread = self.df['high'].iloc[-1] - self.df['low'].iloc[-1]
         return spread < (self.df['close'].iloc[-1] * 0.02)
 
     def _optional_dummy(self):
-        return True
+        return True  # Optional stack
