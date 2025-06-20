@@ -2,7 +2,7 @@ import os
 import time
 from kucoin_data import fetch_ohlcv
 from smart_filter import SmartFilter
-from telegram_alert import send_alert
+from telegram_alert import send_telegram_alert
 
 TOKENS = [
     "SUIUSDTM", "OPUSDTM", "ARBUSDTM", "DOGEUSDTM", "XRPUSDTM",
@@ -30,10 +30,15 @@ def run():
             try:
                 df = fetch_ohlcv(symbol, tf)
                 if df is not None:
-                    result = SmartFilter(symbol, df, min_score=9, required_passed=7).analyze()
+                    sf = SmartFilter(symbol, df, tf=tf, min_score=9, required_passed=7)
+                    result = sf.analyze()
                     if result:
                         if os.getenv("DRY_RUN", "false").lower() != "true":
-                            send_alert(result)
+                            try:
+                                signal_text, symbol, signal_type, price, tf_str, score, passed = result.split(" | ")
+                                send_telegram_alert(symbol, signal_type, price, tf_str, score, passed)
+                            except Exception as alert_err:
+                                print(f"[{symbol}] ❌ Telegram alert error: {alert_err}")
                         last_sent[key] = now
             except Exception as e:
                 print(f"[{symbol} {tf}] Unexpected error: {e}")
@@ -41,6 +46,4 @@ def run():
     print("✅ Cycle complete. Sleeping 3 minutes...\n")
 
 if __name__ == "__main__":
-    while True:
-        run()
-        time.sleep(180)  # Wait 3 minutes before next full cycle
+    run()
