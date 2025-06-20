@@ -1,25 +1,32 @@
-import os
+# telegram_alert.py
 import requests
+import os
 
-def send_alert(message):
-    bot_token = os.getenv("BOT_TOKEN")
-    chat_id = os.getenv("CHAT_ID")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
 
-    if not bot_token or not chat_id:
-        print("Missing BOT_TOKEN or CHAT_ID environment variable.")
-        return
+def send_alert(result):
+    symbol = result.get("symbol")
+    signal = result.get("signal")
+    price = result.get("price")
+    score = result.get("score")
+    confirmed_timeframes = result.get("confirmed_timeframes", "")
 
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    message = (
+        f"[{symbol}] Signal \u2192 {('📈 LONG' if signal == 'LONG' else '📉 SHORT')} Signal\n"
+        f"Price: {price}\n"
+        f"Score: {score}/100\n"
+        f"Confirmed on: {confirmed_timeframes}"
+    )
+
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {
-        "chat_id": chat_id,
-        "text": message,
-        "parse_mode": "Markdown"
+        "chat_id": CHAT_ID,
+        "text": message
     }
-
     try:
-        resp = requests.post(url, json=payload)
-        if resp.status_code != 200:
-            print("Failed to send alert:", resp.text)
+        response = requests.post(url, json=payload)
+        if not response.ok:
+            print("Failed to send alert:", response.text)
     except Exception as e:
-        print("Exception while sending alert:", e)
-
+        print("Exception in send_alert:", e)
