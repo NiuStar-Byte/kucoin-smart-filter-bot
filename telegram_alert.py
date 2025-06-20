@@ -1,39 +1,30 @@
-import os
 import requests
+import os
 
-def send_alert(result):
+# Your actual bot token and chat ID (secured from environment or hardcoded)
+BOT_TOKEN = os.getenv("BOT_TOKEN", "7100609549:AAHmeFe0RondzYyPKNuGTTp8HNAuT0PbNJs")
+CHAT_ID = os.getenv("CHAT_ID", "-1002857433223")  # Group: AlterEgoTalinNius
+
+def send_telegram_alert(symbol, signal_type, price, tf, score, passed, required):
     try:
-        message, score, stacks, df, symbol, interval = result
-
-        detail_lines = [f"📊 *{symbol}* `{interval}` — Score: *{score}/18*"]
-        for k, v in stacks.items():
-            emoji = "✅" if v else "❌"
-            detail_lines.append(f"{emoji} `{k}`")
-
-        price = df['close'].iloc[-1]
-        trend = "📈" if "LONG" in message else "📉"
-
-        final_text = (
-            f"{trend} *{message}*\n"
-            f"Price: `{price}`\n"
-            f"{chr(10).join(detail_lines)}"
+        stack_result = (
+            f"📊 <b>{symbol} {tf}</b>\n"
+            f"✅ Signal: <b>{signal_type.upper()}</b>\n"
+            f"💰 Price: <code>{price}</code>\n"
+            f"🎯 Score: <code>{score}/18</code>\n"
+            f"📌 Required Passed: <code>{passed}/12</code>\n"
         )
 
-        payload = {
-            "chat_id": os.environ.get("CHAT_ID"),
-            "text": final_text,
-            "parse_mode": "Markdown"
-        }
-
-        resp = requests.post(
-            f"https://api.telegram.org/bot{os.environ.get('BOT_TOKEN')}/sendMessage",
-            json=payload
+        response = requests.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+            data={
+                "chat_id": CHAT_ID,
+                "text": stack_result,
+                "parse_mode": "HTML"
+            }
         )
 
-        if resp.status_code != 200:
-            print(f"Failed to send alert: {resp.text}")
-        else:
-            print(f"✅ Telegram alert sent for {symbol} ({interval})")
-
+        if not response.ok:
+            print(f"❌ Failed to send Telegram alert: {response.text}")
     except Exception as e:
         print(f"❌ Telegram alert error: {e}")
