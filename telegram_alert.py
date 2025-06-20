@@ -1,30 +1,30 @@
 import requests
 import os
 
-# Your actual bot token and chat ID (secured from environment or hardcoded)
+# ✅ Your correct credentials (overwrite below if using env vars)
 BOT_TOKEN = os.getenv("BOT_TOKEN", "7100609549:AAHmeFe0RondzYyPKNuGTTp8HNAuT0PbNJs")
-CHAT_ID = os.getenv("CHAT_ID", "-1002857433223")  # Group: AlterEgoTalinNius
+CHAT_ID = os.getenv("CHAT_ID", "-1002857433223")
 
-def send_telegram_alert(symbol, signal_type, price, tf, score, passed, required):
+def send_telegram_alert(symbol, signal_type, price, tf, score, passed):
     try:
-        stack_result = (
-            f"📊 <b>{symbol} {tf}</b>\n"
-            f"✅ Signal: <b>{signal_type.upper()}</b>\n"
-            f"💰 Price: <code>{price}</code>\n"
-            f"🎯 Score: <code>{score}/18</code>\n"
-            f"📌 Required Passed: <code>{passed}/12</code>\n"
+        message = (
+            f"📊 <b>{symbol} ({tf})</b>\n"
+            f"📈 <b>{signal_type} Signal</b>\n"
+            f"💰 <code>{price}</code>\n"
+            f"✅ <b>Score</b>: {score}/18\n"
+            f"📌 <b>Passed</b>: {passed}/12"
         )
 
-        response = requests.post(
-            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-            data={
-                "chat_id": CHAT_ID,
-                "text": stack_result,
-                "parse_mode": "HTML"
-            }
-        )
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        payload = {
+            "chat_id": CHAT_ID,
+            "text": message,
+            "parse_mode": "HTML"
+        }
 
-        if not response.ok:
-            print(f"❌ Failed to send Telegram alert: {response.text}")
+        response = requests.post(url, json=payload)
+        if response.status_code != 200:
+            print(f"Telegram Error: {response.text}")
+
     except Exception as e:
         print(f"❌ Telegram alert error: {e}")
