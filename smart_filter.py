@@ -67,7 +67,7 @@ class SmartFilter:
                 trend_bias = "LONG" if self.df['close'].iloc[-1] > self.df['open'].iloc[-1] else "SHORT"
                 signal = f"{trend_bias} Signal for {self.symbol} at {last_close}"
                 print(f"[{self.symbol}] ✅ FINAL SIGNAL → {signal}")
-                return signal, self.symbol, trend_bias, last_close, self.tf, f"{score}/18", f"{passed}/12"
+                return self.symbol, self.tf, trend_bias, last_close, f"{score}/18", f"{passed}/12"
             else:
                 print(f"[{self.symbol}] ❌ No Signal (Score too low or missing required)")
                 return None
@@ -127,3 +127,4 @@ class SmartFilter:
 
     def _optional_dummy(self):
         return True  # Optional filters marked as passed for now
+
