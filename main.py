@@ -1,8 +1,8 @@
-# main.py
+import time
+import os
 from kucoin_data import fetch_ohlcv
 from smart_filter import SmartFilter
 from telegram_alert import send_alert
-import os
 
 TOKENS = [
     "SUIUSDTM", "OPUSDTM", "ARBUSDTM", "DOGEUSDTM", "XRPUSDTM",
@@ -11,28 +11,24 @@ TOKENS = [
     "PEPEUSDTM", "TIAUSDTM", "SEIUSDTM", "FETUSDTM", "WLDUSDTM"
 ]
 
-TIMEFRAMES = ["2m", "3m", "5m"]
+INTERVAL = int(os.getenv("INTERVAL_MINUTES", 3))  # interval in minutes
+TIMEFRAMES = ["2min", "3min", "5min"]
 
 def run():
     for symbol in TOKENS:
-        signals = []
         for tf in TIMEFRAMES:
-            df = fetch_ohlcv(symbol, interval=tf)
-            if df is not None:
-                result = SmartFilter(symbol, df).analyze()
-                if (
-                    result and
-                    result.get("signal") and
-                    result.get("required_passed")
-                ):
-                    signals.append((tf, result))
-
-        if len(signals) >= 2:  # Require at least 2 timeframes to agree
-            tf_list = ", ".join([s[0] for s in signals])
-            base_result = signals[0][1]
-            base_result["confirmed_timeframes"] = tf_list
-            if not os.getenv("DRY_RUN", "false").lower() == "true":
-                send_alert(base_result)
+            try:
+                df = fetch_ohlcv(symbol, interval=tf)
+                if df is not None:
+                    result = SmartFilter(symbol, df, tf).analyze()
+                    if result and not os.getenv("DRY_RUN", "false").lower() == "true":
+                        send_alert(result)
+            except Exception as e:
+                print(f"[{symbol} {tf}] Unexpected error:", e)
 
 if __name__ == "__main__":
-    run()
+    print(f"📡 Auto Scheduler Started | Interval: {INTERVAL} minutes")
+    while True:
+        run()
+        print(f"✅ Cycle complete. Sleeping {INTERVAL} minutes...\n")
+        time.sleep(INTERVAL * 60)
