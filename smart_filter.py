@@ -12,7 +12,6 @@ class SmartFilter:
         self.total_score = 0
         self.passed_required = True
 
-        # Precompute EMA to avoid reuse
         self.df["ema20"] = df["close"].ewm(span=20).mean()
         self.df["ema50"] = df["close"].ewm(span=50).mean()
         self.df["ema200"] = df["close"].ewm(span=200).mean()
@@ -46,7 +45,6 @@ class SmartFilter:
 
             required_items = list(self.stack_results.keys())[:12]
 
-            # Scoring logic
             score = 0
             passed = 0
             for name, result in self.stack_results.items():
@@ -67,7 +65,7 @@ class SmartFilter:
                 trend_bias = "LONG" if self.df['close'].iloc[-1] > self.df['open'].iloc[-1] else "SHORT"
                 signal = f"{trend_bias} Signal for {self.symbol} at {last_close}"
                 print(f"[{self.symbol}] ✅ FINAL SIGNAL → {signal}")
-                return self.symbol, self.tf, trend_bias, last_close, f"{score}/18", f"{passed}/12"
+                return signal, self.symbol, trend_bias, last_close, self.tf, score, passed
             else:
                 print(f"[{self.symbol}] ❌ No Signal (Score too low or missing required)")
                 return None
@@ -75,8 +73,6 @@ class SmartFilter:
         except Exception as e:
             print(f"[{self.symbol}] SmartFilter Error: {e}")
             return None
-
-    # --- SMART STACKS IMPLEMENTATION ---
 
     def _check_fractal_zone(self):
         return self.df['close'].iloc[-1] > self.df['low'].rolling(20).min().iloc[-1]
@@ -116,15 +112,14 @@ class SmartFilter:
         return self.df['high'].iloc[-1] > self.df['high'].iloc[-3] and self.df['low'].iloc[-1] > self.df['low'].iloc[-3]
 
     def _check_dummy_sr(self):
-        return True  # Placeholder for SR logic
+        return True
 
     def _check_dummy_liquidity(self):
-        return True  # Placeholder for liquidity zone detection
+        return True
 
     def _check_dummy_volatility(self):
         spread = self.df['high'].iloc[-1] - self.df['low'].iloc[-1]
         return spread < (self.df['close'].iloc[-1] * 0.02)
 
     def _optional_dummy(self):
-        return True  # Optional filters marked as passed for now
-
+        return True
